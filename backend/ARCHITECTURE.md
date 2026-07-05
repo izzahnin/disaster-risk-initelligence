@@ -12,8 +12,7 @@ Lapisan 1 — Fondasi Data
 
 Lapisan 2 — Pure Logic (tidak ada dependency internal)
 ├── internal/mapper/province.go
-├── internal/cache/redis.go
-└── internal/db/postgres.go
+└── internal/cache/redis.go
 
 Lapisan 3 — Transformasi Data (bergantung pada model + mapper)
 ├── internal/scorer/risk.go
@@ -25,7 +24,7 @@ Lapisan 4 — Orkestrasi
 
 Lapisan 5 — Entrypoint
 ├── cmd/server/main.go   ← HTTP server
-└── cmd/seed/main.go     ← one-shot tool: isi province_bbox dari Nominatim ke DB
+└── cmd/seed/main.go     ← one-shot tool: referensi historis, tidak dipakai di production
 ```
 
 ---
@@ -59,20 +58,18 @@ Field penting di `Earthquake`:
 ### 2. `internal/mapper/province.go`
 **Peran:** Mengkonversi koordinat `(lat, lng)` → nama provinsi Indonesia menggunakan bounding box.
 
-**Konseptual:** Mapper adalah jembatan antara "koordinat geografis" dan "nama wilayah administratif". Pendekatan bounding box dipilih karena sederhana dan cepat — tidak butuh library GIS atau query spatial database. Tradeoffnya: area di perbatasan dua provinsi bisa salah klasifikasi.
+**Konseptual:** Mapper adalah jembatan antara "koordinat geografis" dan "nama wilayah administratif". Pendekatan bounding box dipilih karena sederhana dan cepat — tidak butuh library GIS atau database. Tradeoffnya: area di perbatasan dua provinsi bisa salah klasifikasi.
 
-**Struktural — dua mode operasi:**
+Data 38 provinsi di-hardcode langsung di file ini — tidak butuh database. Koordinat bersumber dari Nominatim (via `cmd/seed`) dengan koreksi manual untuk provinsi pemekaran 2022 yang belum tersedia di Nominatim.
+
+**Struktural:**
 ```
-Server start
-    │
-    ├─ DATABASE_URL ada → LoadFromDB() → provinceBoxes = 38 provinsi dari DB (akurat)
-    └─ DATABASE_URL tidak ada → provinceBoxes = hardcodedBoxes (15 provinsi, kasar)
-
 Setiap gempa masuk
     │
     └─ MapToProvince(lat, lng)
            │
-           └─ loop provinceBoxes: cek MinLat ≤ lat ≤ MaxLat && MinLng ≤ lng ≤ MaxLng
+           └─ loop provinceBoxes (38 provinsi, hardcoded):
+                  cek MinLat ≤ lat ≤ MaxLat && MinLng ≤ lng ≤ MaxLng
                   ├─ cocok → return nama provinsi
                   └─ tidak ada yang cocok → return "Wilayah Lain"
 ```
@@ -255,59 +252,7 @@ Request masuk
 
 ---
 
-### 8. `internal/db/postgres.go`
-**Peran:** Membuka koneksi PostgreSQL dan mengonfigurasi connection pool.
-
-**Konseptual:** `sql.Open` hanya mendaftarkan driver — koneksi nyata baru terjadi saat `Ping()`. Connection pool dikonfigurasi setelah ping berhasil agar batas berlaku sejak awal, bukan setelah koneksi pertama terbentuk.
-
-**Struktural — pool settings:**
-```
-Open(databaseURL)
-    │
-    ├─ sql.Open("postgres", url)   ← daftarkan driver, belum konek
-    ├─ db.Ping()                   ← buka koneksi pertama, verifikasi bisa terhubung
-    │
-    ├─ SetMaxOpenConns(10)         ← max koneksi aktif sekaligus (free tier aman)
-    ├─ SetMaxIdleConns(5)          ← koneksi siap-pakai saat tidak ada request
-    └─ SetConnMaxLifetime(5m)      ← paksa reconnect; cegah koneksi stale di balik load balancer
-```
-
-Pool ini penting untuk hosted DB (Neon, Supabase, Render) yang sering menutup koneksi idle
-setelah beberapa menit — tanpa `ConnMaxLifetime`, app akan dapat error "broken pipe" saat traffic sepi.
-
----
-
-### 9. `cmd/seed/main.go`
-**Peran:** One-shot CLI tool — mengisi tabel `province_bbox` di PostgreSQL dengan bounding box 38 provinsi Indonesia, diambil dari Nominatim (OpenStreetMap geocoding API).
-
-**Konseptual:** Seed dijalankan sekali saat setup awal (atau saat ada pemekaran provinsi baru). Hasilnya dipakai oleh `mapper.LoadFromDB()` saat server start untuk menggantikan hardcodedBoxes yang hanya 15 provinsi.
-
-**Struktural — alur per provinsi:**
-```
-main()
-    │
-    └─ loop 38 provinsi:
-         │
-         ├─ hardcodedBBox[province] ada? → pakai langsung (tidak hit API)
-         │
-         └─ fetchBBox(province):
-               ├─ GET Nominatim: "{province} Indonesia"
-               ├─ filter: class=boundary, type=administrative
-               ├─ pilih bbox dengan area terbesar (kandidat paling representatif)
-               ├─ TOLAK jika latSpan > 10° atau lngSpan > 10°
-               │     → Nominatim kadang return bbox seluruh negara untuk query ambigu
-               │     → bbox terlalu luas merusak MapToProvince (satu provinsi cover seluruh RI)
-               └─ return minLat, maxLat, minLng, maxLng
-         │
-         └─ upsert ke province_bbox (INSERT ON CONFLICT DO UPDATE)
-              └─ sleep 2s antar request ke Nominatim (rate limit policy OSM)
-```
-
-**Threshold validasi:** `maxBBoxDegrees = 10.0` (~1100 km) — cukup besar untuk Papua (provinsi terluas) tapi menolak bbox level negara.
-
----
-
-### 10. `cmd/server/main.go`
+### 8. `cmd/server/main.go`
 **Peran:** Entrypoint — membaca konfigurasi dari environment, inisialisasi semua komponen, start HTTP server.
 
 **Konseptual:** main() adalah "bootstrap" — satu-satunya tempat di mana semua komponen dirakit bersama. Komponen lain tidak saling tahu satu sama lain; mereka hanya tahu interface yang dibutuhkan. Ini disebut dependency injection manual (tanpa framework DI).
@@ -316,24 +261,21 @@ main()
 ```
 main()
     │
-    ├─ godotenv.Load()           ← baca .env (diabaikan jika tidak ada)
-    ├─ os.Getenv("PORT")         ← default "9090" jika kosong
+    ├─ godotenv.Load()            ← baca .env (diabaikan jika tidak ada)
+    ├─ os.Getenv("PORT")          ← default "9090" jika kosong
     │
-    ├─ [opsional] DATABASE_URL ada?
-    │     ├─ db.Open()           ← koneksi + ping PostgreSQL
-    │     ├─ db.Migrate()        ← buat tabel province_bbox jika belum ada
-    │     └─ mapper.LoadFromDB() ← isi provinceBoxes dari DB
-    │     (jika gagal di langkah manapun → WARNING log, lanjut dengan fallback)
-    │
-    ├─ fiber.New()               ← buat HTTP server
-    ├─ cors.New(AllowOrigins:"*") ← izinkan request dari frontend localhost:3000
+    ├─ fiber.New()                ← buat HTTP server
+    ├─ cors.New(AllowOrigins:"*") ← izinkan request dari frontend
     │
     ├─ cache.NewClient(REDIS_URL) ← no-op jika REDIS_URL kosong
     ├─ handler.New(cacheClient)
-    ├─ h.Register(app)           ← daftarkan /api/health dan /api/earthquakes
+    ├─ h.Register(app)            ← daftarkan /api/health dan /api/earthquakes
     │
-    └─ app.Listen(":PORT")       ← mulai terima request (blocking)
+    └─ app.Listen(":PORT")        ← mulai terima request (blocking)
 ```
+
+Tidak ada koneksi database di server — province mapping sepenuhnya hardcoded di `internal/mapper`.
+Satu-satunya env var yang dipakai: `PORT` (default 9090) dan `REDIS_URL` (opsional).
 
 ---
 

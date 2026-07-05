@@ -16,14 +16,16 @@ Lapisan 2 — Data Fetching
 Lapisan 3 — Komponen UI (atomic, tidak saling bergantung)
 ├── components/Stats/StatCard.tsx
 ├── components/Table/ProvinceRankTable.tsx
-├── components/Chart/ProvinceBarChart.tsx
-└── components/Map/EarthquakeMap.tsx
+├── components/Map/EarthquakeMap.tsx
+└── components/ThemeToggle.tsx
 
 Lapisan 4 — Layout & Provider
 └── app/layout.tsx
 
-Lapisan 5 — Halaman (orkestrasi semua komponen)
-└── app/page.tsx
+Lapisan 5 — Halaman & Konvensi Route
+├── app/page.tsx        ← dashboard utama
+├── app/loading.tsx     ← skeleton saat initial load
+└── app/not-found.tsx   ← halaman 404
 ```
 
 ---
@@ -70,27 +72,18 @@ Kalau `highlight=true`, value ditampilkan dengan warna merah (untuk kondisi aler
 ### 4. `components/Table/ProvinceRankTable.tsx`
 **Peran:** Tabel ranking 10 provinsi tertinggi berdasarkan risk_score.
 
-Props: `provinces: ProvinceSummary[]`
+Props: `provinces: ProvinceSummary[]`, `totalEvents?`, `period?`
 
 Fitur:
 - Progress bar visual per baris (lebar = risk_score %)
 - Warna progress bar: merah (≥70), oranye (40-70), hijau (<40)
+- Kolom: #, Provinsi, Jumlah Gempa, Avg. Mag, Maks. Mag, Skor Risiko
+- `overflow-x-auto` + `min-w-[540px]` agar bisa scroll horizontal di mobile
 - Hanya tampilkan 10 besar (`slice(0, 10)`)
 
 ---
 
-### 5. `components/Chart/ProvinceBarChart.tsx`
-**Peran:** Horizontal bar chart jumlah gempa per provinsi.
-
-Props: `provinces: ProvinceSummary[]`
-
-Menggunakan Recharts `BarChart` dengan layout `"vertical"`. Warna tiap bar mengikuti risk_score provinsi tersebut.
-
-Marked `"use client"` karena Recharts tidak support SSR.
-
----
-
-### 6. `components/Map/EarthquakeMap.tsx`
+### 5. `components/Map/EarthquakeMap.tsx`
 **Peran:** Peta interaktif Leaflet dengan titik-titik gempa live feed.
 
 Props: `earthquakes: Earthquake[]`
@@ -100,7 +93,9 @@ Poin penting:
 - **Wajib di-import via `next/dynamic` dengan `ssr: false`** di page.tsx — jika tidak, build akan error karena Leaflet mencoba akses `window` saat SSR
 - `useEffect` dipakai untuk fix Leaflet default marker icon path issue di Next.js
 - Menggunakan `CircleMarker` (bukan `Marker`) agar warna bisa dikontrol programmatik
-- Tile layer: CartoDB Dark (dark theme, gratis, tanpa API key)
+- Tile layer: **CartoDB Dark Matter** (dark mode) / **CartoDB Positron** (light mode) — switch otomatis via `useTheme`, gratis, tanpa API key
+- Zoom dibatasi: `minZoom=4`, `maxZoom=12`, `maxBounds` sekitar wilayah Indonesia
+- Tinggi responsif: 300px (mobile) → 400px (tablet) → 480px (desktop)
 
 ```
 magnitude < 5  → CircleMarker hijau
@@ -110,15 +105,20 @@ magnitude > 6  → CircleMarker merah
 
 ---
 
+### 6. `components/ThemeToggle.tsx`
+**Peran:** Tombol toggle dark / light mode.
+
+Menggunakan `useTheme` dari `next-themes`. Guard `mounted` state mencegah hydration mismatch — komponen tidak render apa-apa saat SSR, baru muncul setelah client mount.
+
+---
+
 ### 7. `app/layout.tsx`
 **Peran:** Root layout — setup global provider dan CSS.
 
 Yang dilakukan:
-1. Import Leaflet CSS (`leaflet/dist/leaflet.css`) — harus di layout, bukan di komponen Map, agar tersedia saat hydration
-2. Wrap seluruh app dengan `QueryClientProvider` dari TanStack Query
-3. `QueryClient` dibuat dengan `useState` (bukan di luar komponen) agar setiap user session punya instance terpisah
-
-Marked `"use client"` karena menggunakan `useState` untuk QueryClient.
+1. Import Leaflet CSS (`leaflet/dist/leaflet.css`) — harus di layout agar tersedia saat hydration
+2. Wrap seluruh app dengan `ThemeProvider` (next-themes) lalu `QueryClientProvider`
+3. `suppressHydrationWarning` di `<html>` mencegah warning dari perbedaan class dark/light antara SSR dan client
 
 ---
 
@@ -130,16 +130,28 @@ Alur render:
 useEarthquakeData()
   ├── isLoading=true  → tampilkan skeleton placeholders
   ├── isError=true    → tampilkan pesan error
-  └── data ready      → render StatCard × 3, EarthquakeMap, LiveFeed, ProvinceRankTable, ProvinceBarChart
+  └── data ready      → render StatCard × 3, EarthquakeMap, LiveFeed sidebar, ProvinceRankTable
 ```
 
-`EarthquakeMap` di-import via `next/dynamic`:
-```ts
-const EarthquakeMap = dynamic(() => import("@/components/Map/EarthquakeMap"), {
-  ssr: false,
-  loading: () => <div className="skeleton earthquake-map" />,
-})
-```
+Layout responsif: stat cards 1 kolom (mobile) → 3 kolom (sm+). Map + live feed stack vertikal (mobile) → grid 2 kolom (lg+).
+
+---
+
+### 9. `app/loading.tsx`
+**Peran:** Konvensi Next.js App Router — ditampilkan saat initial page load sebelum `page.tsx` terhidrasi.
+
+Menampilkan skeleton layout yang mencerminkan struktur dashboard: header, seismo-line, 3 stat card, peta + sidebar, tabel. Menggunakan class `.skeleton` dari `globals.css`.
+
+Server Component — tidak butuh `"use client"`.
+
+---
+
+### 10. `app/not-found.tsx`
+**Peran:** Konvensi Next.js App Router — ditampilkan saat route tidak ditemukan (404).
+
+Desain bertema seismik: angka `404` besar dengan warna amber (`--color-accent`), seismo-line dekoratif, judul "Sinyal Tidak Ditemukan", link kembali ke dashboard.
+
+Server Component — dark mode tetap bekerja karena CSS variables dikontrol via class `.dark` di `<html>`.
 
 ---
 
@@ -159,8 +171,7 @@ page.tsx menerima { data, isLoading, isError }
         ├── data.stats            → StatCard × 3
         ├── data.live_feed        → EarthquakeMap (Leaflet markers) + Live Feed sidebar
         └── data.historical_summary.by_province
-                ├── ProvinceRankTable (tabel + progress bar)
-                └── ProvinceBarChart  (Recharts bar chart)
+                └── ProvinceRankTable (tabel + progress bar risk score)
 ```
 
 ---

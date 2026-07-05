@@ -56,13 +56,14 @@ npm run lint       # ESLint
 
 ## Fitur Dashboard
 
-- **Peta Sebaran Gempa** — 15 titik gempa live feed BMKG dengan warna berdasarkan magnitudo (hijau/oranye/merah), popup detail per titik
+- **Peta Sebaran Gempa** — 15 titik gempa live feed BMKG, warna berdasarkan magnitudo, popup detail, tile switch CartoDB dark/light otomatis, zoom dibatasi ke wilayah Indonesia
 - **Stat Cards** — 3 angka ringkas: menit sejak gempa terakhir, rata-rata magnitudo 15 gempa terkini, gempa terkuat 30 hari terakhir
-- **Gempa Terkini** — daftar 15 gempa terbaru dari BMKG dengan waktu (WIB), kedalaman, dan indikator potensi tsunami
-- **Tabel Ranking** — 10 provinsi paling rawan gempa berdasarkan data historis USGS 6 bulan, dengan kolom jumlah gempa, rata-rata & maksimum magnitudo, dan skor risiko
-- **Dark / Light Mode** — tema dapat diubah manual atau mengikuti preferensi sistem
+- **Gempa Terkini** — daftar 15 gempa terbaru dari BMKG dengan waktu WIB, kedalaman, dan indikator potensi tsunami
+- **Tabel Ranking** — 10 provinsi paling rawan gempa berdasarkan data historis USGS 6 bulan; scroll horizontal di mobile
+- **Dark / Light Mode** — tema mengikuti preferensi sistem atau diubah manual via toggle
 - **Auto-refresh** — data diperbarui otomatis tiap 2 menit tanpa reload halaman
 - **Partial data banner** — notifikasi jika salah satu sumber data tidak tersedia
+- **Loading & 404** — halaman skeleton dan not-found bertema seismik
 
 ## Struktur Folder
 
@@ -70,11 +71,13 @@ npm run lint       # ESLint
 app/
   layout.tsx              root layout + ThemeProvider + QueryClientProvider
   page.tsx                halaman dashboard utama
+  loading.tsx             skeleton saat initial load (Next.js convention)
+  not-found.tsx           halaman 404 bertema seismik (Next.js convention)
   globals.css             design tokens (light/dark), animasi seismograf
 components/
-  Map/EarthquakeMap       peta Leaflet, dynamic import (SSR disabled)
+  Map/EarthquakeMap       peta Leaflet, dynamic import (SSR disabled), tile dark/light
   Stats/StatCard          big-number card
-  Table/ProvinceRankTable tabel ranking dengan progress bar risk score
+  Table/ProvinceRankTable tabel ranking dengan progress bar risk score, scroll mobile
   ThemeToggle             tombol dark/light mode
 hooks/
   useEarthquakeData.ts    TanStack Query hook — fetch + cache
