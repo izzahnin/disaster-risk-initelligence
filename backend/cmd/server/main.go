@@ -8,47 +8,23 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/izzahnin/disaster-risk-intelligence-backend/internal/cache"
-	"github.com/izzahnin/disaster-risk-intelligence-backend/internal/db"
 	"github.com/izzahnin/disaster-risk-intelligence-backend/internal/handler"
-	"github.com/izzahnin/disaster-risk-intelligence-backend/internal/mapper"
 )
 
-// main adalah entrypoint server. Urutan inisialisasi penting:
-// env vars → database (opsional) → cache client → HTTP server
+// main adalah entrypoint server.
+// Urutan inisialisasi: env vars → cache client → HTTP server
 //
-// Filosofi error handling di sini: gagal di komponen opsional (DB, Redis) tidak
-// menghentikan server. Sebaliknya, server berjalan dengan degradasi:
-//   - Tanpa DB → mapper pakai hardcoded bbox 15 provinsi
-//   - Tanpa Redis → setiap request fetch langsung ke BMKG/USGS (lebih lambat)
-//   - Tanpa keduanya → app tetap berjalan, hanya lebih lambat
+// Province mapping menggunakan bbox 38 provinsi yang di-hardcode di internal/mapper.
+// Tanpa Redis → setiap request fetch langsung ke BMKG/USGS (lebih lambat, tapi tetap jalan).
 func main() {
 	// godotenv.Load membaca file .env ke environment variables.
-	// Error diabaikan (dengan _) karena .env tidak wajib ada — di production
-	// env vars biasanya diset langsung oleh platform (Docker, Railway, dll).
+	// Error diabaikan karena .env tidak wajib ada — di production env vars
+	// diset langsung oleh platform (Render, Vercel, dll).
 	_ = godotenv.Load()
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "9090" // default port jika PORT tidak diset
-	}
-
-	// PostgreSQL — opsional. Jika DATABASE_URL ada, server mencoba koneksi.
-	// Jika gagal, fallback ke hardcodedBoxes di mapper (15 provinsi).
-	// Alur: Open → Migrate (buat tabel jika belum ada) → LoadFromDB (isi provinceBoxes)
-	if databaseURL := os.Getenv("DATABASE_URL"); databaseURL != "" {
-		sqlDB, err := db.Open(databaseURL)
-		if err != nil {
-			log.Printf("WARNING: cannot connect to PostgreSQL: %v — using hardcoded province bounding boxes", err)
-		} else {
-			defer sqlDB.Close()
-			if err := db.Migrate(sqlDB); err != nil {
-				log.Printf("WARNING: migrate failed: %v", err)
-			} else if err := mapper.LoadFromDB(sqlDB); err != nil {
-				log.Printf("WARNING: load province bbox from DB failed: %v — using hardcoded fallback", err)
-			}
-		}
-	} else {
-		log.Println("WARNING: DATABASE_URL not set, using hardcoded province bounding boxes")
+		port = "9090"
 	}
 
 	redisURL := os.Getenv("REDIS_URL")

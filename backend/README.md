@@ -9,14 +9,12 @@ REST API untuk dashboard risiko gempa bumi Indonesia. Menggabungkan data real-ti
 | Language | Go 1.22+ |
 | Framework | Fiber v2 |
 | Cache | Redis (go-redis/v9) — Upstash di production |
-| Database | PostgreSQL — menyimpan bounding box 38 provinsi |
 | Testing | Go `testing` package |
 
 ## Setup & Run
 
 ### Prasyarat
 - Go 1.22+
-- (Opsional) PostgreSQL — jika tidak ada, mapper pakai 15 provinsi hardcoded
 - (Opsional) Redis — jika tidak ada, app tetap jalan tanpa cache
 
 ### 1. Clone & install dependencies
@@ -36,7 +34,6 @@ cp .env.example .env
 |---|---|---|
 | `PORT` | `9090` | Port HTTP server |
 | `REDIS_URL` | _(kosong)_ | URL Redis. Kosongkan untuk dev tanpa cache |
-| `DATABASE_URL` | _(kosong)_ | URL PostgreSQL. Kosongkan untuk fallback hardcoded |
 
 ### 3. Jalankan server
 
@@ -45,14 +42,6 @@ go run ./cmd/server
 ```
 
 Server berjalan di `http://localhost:9090`.
-
-### 4. (Opsional) Seed bounding box provinsi
-
-```bash
-go run ./cmd/seed
-```
-
-Mengisi tabel `province_bbox` di PostgreSQL dengan bounding box 38 provinsi dari Nominatim. Dijalankan sekali saat setup awal.
 
 ## API Endpoints
 
@@ -120,6 +109,10 @@ go test ./...
 Unit test mencakup:
 - `internal/mapper` — `MapToProvince()` dengan berbagai koordinat
 - `internal/scorer` — kalkulasi risk score, normalisasi, urutan descending
+
+## Province Mapping
+
+Bounding box 38 provinsi Indonesia di-hardcode langsung di `internal/mapper/province.go` — tidak butuh database. Koordinat bersumber dari Nominatim OpenStreetMap dengan koreksi manual untuk provinsi hasil pemekaran 2022.
 
 ## Sumber Data
 
