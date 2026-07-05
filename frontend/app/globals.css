@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+}
+
+/* ── Light mode (kertas seismograf) ── */
+:root {
+  --color-bg:         #f8f7f4;
+  --color-surface:    #ffffff;
+  --color-surface-2:  #f1f0ed;
+  --color-border:     #e2e0db;
+  --color-text:       #1a1917;
+  --color-text-muted: #78756e;
+  --color-accent:     #d97706;
+  --color-risk-high:  #dc2626;
+  --color-risk-mid:   #ea580c;
+  --color-risk-low:   #16a34a;
+}
+
+/* ── Dark mode (layar monitoring) ── */
+.dark {
+  --color-bg:         #111210;
+  --color-surface:    #1c1b19;
+  --color-surface-2:  #252420;
+  --color-border:     #2e2d2a;
+  --color-text:       #f0ede8;
+  --color-text-muted: #8a8781;
+  --color-accent:     #f59e0b;
+  --color-risk-high:  #ef4444;
+  --color-risk-mid:   #f97316;
+  --color-risk-low:   #22c55e;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background-color: var(--color-bg);
+  background-image: radial-gradient(circle, #c8c5bc 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--color-text);
+  font-family: var(--font-sans), Arial, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dark body,
+.dark html {
+  background-image: radial-gradient(circle, #2a2926 1px, transparent 1px);
+}
+
+/* ── Sonar pulse marker ── */
+@keyframes sonar-ring {
+  0%   { transform: scale(1);   opacity: 0.75; }
+  100% { transform: scale(3.8); opacity: 0; }
+}
+
+.eq-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.eq-dot {
+  border-radius: 50%;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.eq-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  animation: sonar-ring var(--ring-duration, 2s) ease-out infinite;
+  opacity: 0;
+  inset: 0;
+}
+
+.eq-ring-2 {
+  animation-delay: 0.85s;
+}
+
+/* ── LIVE badge ── */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.25; }
+}
+
+.live-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  animation: live-pulse 1.8s ease-in-out infinite;
+}
+
+/* ── Signature: seismograf flatline di bawah header ── */
+@keyframes seismo-pulse {
+  0%   { transform: scaleX(0.96); opacity: 0.5; }
+  50%  { transform: scaleX(1);    opacity: 1; }
+  100% { transform: scaleX(0.96); opacity: 0.5; }
+}
+
+.seismo-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--color-accent) 30%, var(--color-accent) 70%, transparent 100%);
+  animation: seismo-pulse 3s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* ── Skeleton ── */
+@keyframes pulse-skeleton { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.skeleton {
+  background: var(--color-surface-2);
+  border-radius: 0.5rem;
+  animation: pulse-skeleton 1.5s ease-in-out infinite;
+}
+
+/* ── Leaflet popup — DOM diinjeksi Leaflet, tidak bisa pakai Tailwind ── */
+.leaflet-popup-content-wrapper {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--color-surface) !important;
+}
+
+.map-popup strong {
+  font-size: 1.05rem;
+  color: var(--color-text);
+}
+
+.map-popup p {
+  margin: 0.2rem 0;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.popup-tsunami {
+  color: var(--color-risk-high) !important;
+  font-weight: 600;
+}
