@@ -1,24 +1,22 @@
-"use client"
-
+import type { Metadata } from "next"
 import { Geist } from "next/font/google"
-import { ThemeProvider } from "next-themes"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { useState } from "react"
+import Providers from "@/components/Providers"
 import "leaflet/dist/leaflet.css"
 import "./globals.css"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" })
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient())
+export const metadata: Metadata = {
+  title: "Indonesia Seismic Monitor",
+  description: "Dashboard pemantauan aktivitas seismik Indonesia — data BMKG & USGS, diperbarui tiap 2 menit.",
+}
 
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // suppressHydrationWarning wajib — next-themes menambah class "dark" setelah hydration
     <html lang="id" className={geist.variable} suppressHydrationWarning>
       <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-        </ThemeProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )
