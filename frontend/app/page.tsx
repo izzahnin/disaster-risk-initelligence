@@ -37,15 +37,15 @@ export default function DashboardPage() {
       <header className="flex justify-between items-start pb-4" style={{ borderBottom: "1px solid var(--color-border)" }}>
         <div>
           <h1 className="text-3xl font-bold tracking-tight" style={{ color: "var(--color-text)" }}>
-            Disaster Risk{" "}
-            <span style={{ color: "var(--color-accent)" }}>Intelligence</span>
+            Indonesia{" "}
+            <span style={{ color: "var(--color-accent)" }}>Seismic Monitor</span>
           </h1>
           <div className="flex items-center gap-2 mt-1">
             <span className="live-badge">
               <span style={{ letterSpacing: 0 }}>●</span>{" "}LIVE
             </span>
             <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-              Pantau risiko gempa Indonesia secara real-time
+              Pantau aktivitas seismik Indonesia, diperbarui tiap 2 menit
             </span>
           </div>
         </div>
@@ -118,7 +118,7 @@ export default function DashboardPage() {
             Peta Sebaran Gempa
           </h2>
           <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
-            Menampilkan 15 gempa terbaru yang dipantau BMKG secara real-time. Ukuran titik menunjukkan kekuatan gempa.
+            Menampilkan 15 gempa terbaru yang dipantau BMKG. Data diperbarui otomatis tiap 2 menit.
           </p>
         </div>
 

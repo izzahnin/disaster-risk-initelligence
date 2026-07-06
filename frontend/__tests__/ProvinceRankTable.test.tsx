@@ -19,7 +19,7 @@ describe("ProvinceRankTable", () => {
 
   it("renders empty table without crashing", () => {
     render(<ProvinceRankTable provinces={[]} />)
-    expect(screen.getByText("Wilayah Berisiko Tertinggi")).toBeInTheDocument()
+    expect(screen.getByText("10 Wilayah dengan Aktivitas Seismik Tertinggi")).toBeInTheDocument()
   })
 
   it("shows correct rank numbers", () => {
